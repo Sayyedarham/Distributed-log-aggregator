@@ -1,0 +1,53 @@
+# Edge Collection Agent — Default Configuration
+# ================================================
+# Priority: CLI args > environment variables > this file > built-in defaults
+
+agent:
+  id: "auto"                        # auto-generate UUID if "auto"
+  collection_interval_sec: 10       # seconds between metric collection rounds
+  health_check_port: 8090           # HTTP health-check endpoint port
+
+gateway:
+  host: "localhost"
+  port: 9090
+  connection_timeout_sec: 10
+  reconnect_interval_sec: 5
+  max_reconnect_attempts: 0         # 0 = infinite retries
+
+buffer:
+  capacity: 10000                   # max items in the ring buffer
+  use_c_extension: true             # prefer C ring buffer when available
+
+transport:
+  min_batch_size: 1
+  max_batch_size: 100
+  compression_enabled: true
+  compression_threshold_bytes: 1024 # compress only above this size
+
+optimizer:
+  enabled: true
+  initial_chunk_size: 10
+  min_chunk_size: 1
+  max_chunk_size: 200
+  adjustment_interval_sec: 30
+  latency_weight: 0.4
+  throughput_weight: 0.4
+  cpu_weight: 0.2
+
+recovery:
+  enabled: true
+  cache_dir: "/tmp/log-aggregator-recovery"
+  max_cache_size_mb: 100
+  flush_batch_size: 50
+
+collectors:
+  cpu: true
+  memory: true
+  disk: true
+  network: true
+
+logging:
+  level: "INFO"
+  file: "/var/log/log-aggregator/agent.log"
+  max_file_size_mb: 50
+  backup_count: 5

@@ -1,0 +1,71 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "CPU Usage Breakdown (User, System, I/O Wait, Steal, Idle)",
+      "type": "timeseries",
+      "datasource": "InfluxDB",
+      "targets": [
+        {
+          "query": "from(bucket: \"metrics\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpu_metrics\" and (r._field == \"user_percent\" or r._field == \"system_percent\" or r._field == \"iowait_percent\" or r._field == \"steal_percent\")) |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "stacking": { "mode": "normal", "group": "A" }, "fillOpacity": 30 },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 2,
+      "title": "Normalized Load Averages (1m, 5m, 15m)",
+      "type": "timeseries",
+      "datasource": "InfluxDB",
+      "targets": [
+        {
+          "query": "from(bucket: \"metrics\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpu_metrics\" and (r._field == \"load_avg_1m\" or r._field == \"load_avg_5m\" or r._field == \"load_avg_15m\")) |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 3,
+      "title": "Per-Core Utilization Distribution",
+      "type": "timeseries",
+      "datasource": "InfluxDB",
+      "targets": [
+        {
+          "query": "from(bucket: \"metrics\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpu_core_metrics\" and r._field == \"usage_percent\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100 }
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["cpu", "kernel", "procfs"],
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "browser",
+  "title": "CPU Metrics Deep Dive",
+  "uid": "dist-sys-cpu",
+  "version": 1
+}
+

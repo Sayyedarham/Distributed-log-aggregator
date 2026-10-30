@@ -1,0 +1,3 @@
+pyyaml>=6.0
+psutil>=5.9.0
+protobuf>=4.24.0

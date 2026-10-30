@@ -1,0 +1,166 @@
+# =============================================================================
+# Distributed Log Aggregator & Metric Monitor — Docker Compose Orchestration
+# =============================================================================
+# Multi-Tiered Architecture:
+#   Tier 1: Edge Collection Agent (Python / C Extension Ring Buffer)
+#   Tier 2: Ingestion & Aggregator Gateway (Java 17 / Netty NIO)
+#   Tier 3: Storage & Visualization (PostgreSQL + InfluxDB + Grafana)
+# =============================================================================
+
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Tier 3: PostgreSQL 15 — Relational Metadata, Registry & Alert Store
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: logagg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: log_aggregator
+      POSTGRES_USER: aggregator
+      POSTGRES_PASSWORD: aggregator_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./storage/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./storage/postgres/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    networks:
+      - log-aggregator-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aggregator -d log_aggregator"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Tier 3: InfluxDB 2.7 — High-Performance Time-Series Database
+  # ---------------------------------------------------------------------------
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: logagg-influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: influx_password123
+      DOCKER_INFLUXDB_INIT_ORG: log-aggregator
+      DOCKER_INFLUXDB_INIT_BUCKET: metrics
+      DOCKER_INFLUXDB_INIT_RETENTION: 30d
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-secret-token
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    networks:
+      - log-aggregator-net
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # Tier 3: Grafana 10 — Real-Time Operations & Monitoring Dashboards
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: logagg-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "http://localhost:3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./storage/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./storage/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - log-aggregator-net
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Tier 2: Ingestion & Aggregation Gateway (Java 17 / Netty NIO)
+  # ---------------------------------------------------------------------------
+  gateway:
+    build:
+      context: ./ingestion-gateway
+      dockerfile: Dockerfile
+    container_name: logagg-gateway
+    restart: unless-stopped
+    environment:
+      GATEWAY_SERVER_HOST: "0.0.0.0"
+      GATEWAY_SERVER_PORT: "9090"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+      POSTGRES_DATABASE: "log_aggregator"
+      POSTGRES_USERNAME: "aggregator"
+      POSTGRES_PASSWORD: "aggregator_pass"
+      INFLUXDB_URL: "http://influxdb:8086"
+      INFLUXDB_TOKEN: "my-super-secret-token"
+      INFLUXDB_ORG: "log-aggregator"
+      INFLUXDB_BUCKET: "metrics"
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC"
+    ports:
+      - "9090:9090"
+    networks:
+      - log-aggregator-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f gateway.jar || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Tier 1: Edge Collection Agent (Python / C Extension Ring Buffer)
+  # ---------------------------------------------------------------------------
+  agent:
+    build:
+      context: ./edge-agent
+      dockerfile: Dockerfile
+    container_name: logagg-agent
+    restart: unless-stopped
+    environment:
+      GATEWAY_HOST: "gateway"
+      GATEWAY_PORT: "9090"
+      AGENT_ID: "agent-node-docker-01"
+      COLLECTION_INTERVAL_SEC: "10"
+      LOG_LEVEL: "INFO"
+    networks:
+      - log-aggregator-net
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+    driver: local
+  influxdb-data:
+    driver: local
+  influxdb-config:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  log-aggregator-net:
+    driver: bridge
+    name: log-aggregator-net

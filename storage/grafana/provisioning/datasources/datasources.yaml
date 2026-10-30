@@ -1,0 +1,109 @@
+# ============================================================================
+# Grafana Datasource Provisioning
+# Distributed Log Aggregator - Visualization Layer
+# ============================================================================
+# Automatically provisions InfluxDB and PostgreSQL datasources when
+# Grafana starts. Mounted at /etc/grafana/provisioning/datasources/
+# ============================================================================
+
+apiVersion: 1
+
+# List of datasources to insert/update
+datasources:
+  # -------------------------------------------------------------------------
+  # InfluxDB - Primary time-series data store
+  # Stores all agent metrics (CPU, memory, disk, network)
+  # -------------------------------------------------------------------------
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: log-aggregator
+      defaultBucket: metrics
+      tlsSkipVerify: true
+    secureJsonData:
+      token: my-super-secret-token
+    isDefault: true
+    editable: true
+    uid: influxdb-metrics
+
+  # -------------------------------------------------------------------------
+  # InfluxDB (5m Downsampled) - Medium-resolution metrics
+  # For longer time range queries with better performance
+  # -------------------------------------------------------------------------
+  - name: InfluxDB-5m
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: log-aggregator
+      defaultBucket: metrics_5m
+      tlsSkipVerify: true
+    secureJsonData:
+      token: my-super-secret-token
+    isDefault: false
+    editable: true
+    uid: influxdb-metrics-5m
+
+  # -------------------------------------------------------------------------
+  # InfluxDB (1h Downsampled) - Low-resolution metrics
+  # For very long time range queries (weeks/months)
+  # -------------------------------------------------------------------------
+  - name: InfluxDB-1h
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: log-aggregator
+      defaultBucket: metrics_1h
+      tlsSkipVerify: true
+    secureJsonData:
+      token: my-super-secret-token
+    isDefault: false
+    editable: true
+    uid: influxdb-metrics-1h
+
+  # -------------------------------------------------------------------------
+  # InfluxDB (Gateway) - Gateway internal metrics
+  # Stores gateway health and performance data
+  # -------------------------------------------------------------------------
+  - name: InfluxDB-Gateway
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: log-aggregator
+      defaultBucket: gateway_metrics
+      tlsSkipVerify: true
+    secureJsonData:
+      token: my-super-secret-token
+    isDefault: false
+    editable: true
+    uid: influxdb-gateway
+
+  # -------------------------------------------------------------------------
+  # PostgreSQL - Relational data store
+  # Stores agent registry, alerts, pipeline logs, metadata
+  # -------------------------------------------------------------------------
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    database: log_aggregator
+    user: aggregator
+    secureJsonData:
+      password: aggregator_pass
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 5
+      connMaxLifetime: 14400
+      postgresVersion: 1500
+      timescaledb: false
+    isDefault: false
+    editable: true
+    uid: postgres-log-aggregator

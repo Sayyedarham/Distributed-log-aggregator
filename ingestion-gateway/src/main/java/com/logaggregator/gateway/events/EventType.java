@@ -1,0 +1,15 @@
+package com.logaggregator.gateway.events;
+
+public enum EventType {
+    AGENT_CONNECTED,
+    AGENT_DISCONNECTED,
+    AGENT_REGISTERED,
+    METRIC_RECEIVED,
+    METRIC_PROCESSED,
+    METRIC_STORED,
+    PIPELINE_ERROR,
+    STORAGE_ERROR,
+    BUFFER_WARNING,
+    THROUGHPUT_ALERT
+}
+

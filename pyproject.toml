@@ -1,0 +1,6 @@
+[tool.pyright]
+extraPaths = ["edge-agent"]
+
+[tool.mypy]
+mypy_path = "edge-agent"
+
